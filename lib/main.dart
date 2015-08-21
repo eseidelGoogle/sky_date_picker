@@ -24,7 +24,6 @@ class DatePicker extends Component {
         justifyContent: FlexJustifyContent.spaceAround
       )
     ];
-
     int year = dateTime.year;
     int month = dateTime.month;
     // Dart's Date time constructor is very forgiving and will understand
@@ -32,21 +31,29 @@ class DatePicker extends Component {
     int daysInMonth = new DateTime(year, month + 1).difference(new DateTime(year, month)).inDays;
     int firstDay =  new DateTime(year, month).day;
     int weeksShown = 6;
-    int daysPerRow = DateTime.DAYS_PER_WEEK;
-    int daySlots = weeksShown * daysPerRow;
+    List<int> days = [
+      DateTime.SUNDAY,
+      DateTime.MONDAY,
+      DateTime.TUESDAY,
+      DateTime.WEDNESDAY,
+      DateTime.THURSDAY,
+      DateTime.FRIDAY,
+      DateTime.SATURDAY
+    ];
+    int daySlots = weeksShown * days.length;
     List<Widget> labels = [];
     for (int i = 0; i < daySlots; i++) {
       // This assumes a start day of SUNDAY, but could be changed.
       int day = i - firstDay;
-      if (i < 0 || i > daysInMonth)
+      if (day < 0 || day > daysInMonth)
         labels.add(new Text(""));
       else
         labels.add(new Text((day + 1).toString()));
     }
     for (int w = 0; w < weeksShown; w++) {
-        int startIndex = w * daysPerRow;
+        int startIndex = w * days.length;
         rows.add(new Flex(
-          labels.sublist(startIndex, startIndex + daysPerRow),
+          labels.sublist(startIndex, startIndex + days.length),
           justifyContent: FlexJustifyContent.spaceAround
         ));
     }
