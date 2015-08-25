@@ -10,9 +10,9 @@ void main() => runApp(new DatePickerDemo());
 
 typedef void DatePickerValueChanged(DateTime dateTime);
 
-enum _DatePickerMode { day, year }
+enum DatePickerMode { day, year }
 
-typedef void _ModeChanged(_DatePickerMode value);
+typedef void DatePickerModeChanged(DatePickerMode value);
 
 class DatePicker extends StatefulComponent {
   DatePicker({
@@ -38,12 +38,20 @@ class DatePicker extends StatefulComponent {
     lastDate = source.lastDate;
   }
 
-  _DatePickerMode _mode = _DatePickerMode.day;
+  DatePickerMode _mode = DatePickerMode.day;
 
-  void _handleModeChanged(_DatePickerMode mode) {
+  void _handleModeChanged(DatePickerMode mode) {
     setState(() {
       _mode = mode;
     });
+  }
+
+  void _handleYearChanged(DateTime dateTime) {
+    setState(() {
+      _mode = DatePickerMode.day;
+    });
+    if (onChanged != null)
+      onChanged(dateTime);
   }
 
   static const double calendarHeight = 210.0;
@@ -56,7 +64,7 @@ class DatePicker extends StatefulComponent {
     );
     Widget picker;
     switch (_mode) {
-      case _DatePickerMode.day:
+      case DatePickerMode.day:
         picker = new MonthPicker(
           selectedDate: selectedDate,
           onChanged: onChanged,
@@ -65,10 +73,10 @@ class DatePicker extends StatefulComponent {
           itemExtent: calendarHeight
         );
         break;
-      case _DatePickerMode.year:
+      case DatePickerMode.year:
         picker = new YearPicker(
           selectedDate: selectedDate,
-          onChanged: onChanged,
+          onChanged: _handleYearChanged,
           firstDate: firstDate,
           lastDate: lastDate
         );
@@ -87,10 +95,10 @@ class DatePickerHeader extends Component {
   }
 
   DateTime selectedDate;
-  _DatePickerMode mode;
-  _ModeChanged onModeChanged;
+  DatePickerMode mode;
+  DatePickerModeChanged onModeChanged;
 
-  EventDisposition _handleChangeMode(_DatePickerMode value) {
+  EventDisposition _handleChangeMode(DatePickerMode value) {
     if (value == mode)
       return EventDisposition.ignored;
     onModeChanged(value);
@@ -105,13 +113,13 @@ class DatePickerHeader extends Component {
     switch(theme.primaryColorBrightness) {
       case ThemeBrightness.light:
         headerTheme = typography.black;
-        dayColor = mode == _DatePickerMode.day ? colors.black87 : colors.black54;
-        yearColor = mode == _DatePickerMode.year ? colors.black87 : colors.black54;
+        dayColor = mode == DatePickerMode.day ? colors.black87 : colors.black54;
+        yearColor = mode == DatePickerMode.year ? colors.black87 : colors.black54;
         break;
       case ThemeBrightness.dark:
         headerTheme = typography.white;
-        dayColor = mode == _DatePickerMode.day ? colors.white87 : colors.white54;
-        yearColor = mode == _DatePickerMode.year ? colors.white87 : colors.white54;
+        dayColor = mode == DatePickerMode.day ? colors.white87 : colors.white54;
+        yearColor = mode == DatePickerMode.year ? colors.white87 : colors.white54;
         break;
     }
     TextStyle dayStyle = headerTheme.display3.copyWith(color: dayColor, height: 1.0, fontSize: 100.0);
@@ -125,19 +133,19 @@ class DatePickerHeader extends Component {
         new Center(
           child: new Listener(
             child: new Text(new DateFormat("MMM").format(selectedDate).toUpperCase(), style: monthStyle),
-            onGestureTap: (_) => _handleChangeMode(_DatePickerMode.day)
+            onGestureTap: (_) => _handleChangeMode(DatePickerMode.day)
           )
         ),
         new Center(
           child: new Listener(
             child: new Text(new DateFormat("d").format(selectedDate), style: dayStyle),
-            onGestureTap: (_) => _handleChangeMode(_DatePickerMode.day)
+            onGestureTap: (_) => _handleChangeMode(DatePickerMode.day)
           )
         ),
         new Center(
           child: new Listener(
             child: new Text(new DateFormat("yyyy").format(selectedDate), style: yearStyle),
-            onGestureTap: (_) => _handleChangeMode(_DatePickerMode.year)
+            onGestureTap: (_) => _handleChangeMode(DatePickerMode.year)
           )
         )
       ]),
