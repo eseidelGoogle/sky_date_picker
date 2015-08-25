@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:sky/theme/colors.dart' as colors;
 import 'package:sky/theme/typography.dart' as typography;
 import 'package:sky/widgets.dart';
@@ -8,47 +10,99 @@ void main() => runApp(new DatePickerDemo());
 
 typedef void DatePickerValueChanged(DateTime dateTime);
 
-class DatePicker extends StatefulComponent {
-  DatePicker({this.dateTime, this.onChanged});
+enum DatePickerMode { day, year }
 
-  DateTime dateTime;
+typedef void DatePickerModeChanged(DatePickerMode value);
+
+class DatePicker extends StatefulComponent {
+  DatePicker({
+    this.selectedDate,
+    this.onChanged,
+    this.firstDate,
+    this.lastDate
+  }) {
+    assert(selectedDate != null);
+    assert(firstDate != null);
+    assert(lastDate != null);
+  }
+
+  DateTime selectedDate;
   DatePickerValueChanged onChanged;
+  DateTime firstDate;
+  DateTime lastDate;
 
   void syncConstructorArguments(DatePicker source) {
-    dateTime = source.dateTime;
+    selectedDate = source.selectedDate;
     onChanged = source.onChanged;
+    firstDate = source.firstDate;
+    lastDate = source.lastDate;
   }
 
-  bool _showYear = false;
+  DatePickerMode _mode = DatePickerMode.day;
 
-  EventDisposition _handleShowYear(_) {
-    if (_showYear)
-      return EventDisposition.ignored;
+  void _handleModeChanged(DatePickerMode mode) {
     setState(() {
-      _showYear = true;
+      _mode = mode;
     });
-    return EventDisposition.processed;
   }
 
-  EventDisposition _handleHideYear(_) {
-    if (!_showYear)
-      return EventDisposition.ignored;
+  void _handleYearChanged(DateTime dateTime) {
     setState(() {
-      _showYear = false;
+      _mode = DatePickerMode.day;
     });
+    if (onChanged != null)
+      onChanged(dateTime);
+  }
+
+  static const double calendarHeight = 210.0;
+
+  Widget build() {
+    Widget header = new DatePickerHeader(
+      selectedDate: selectedDate,
+      mode: _mode,
+      onModeChanged: _handleModeChanged
+    );
+    Widget picker;
+    switch (_mode) {
+      case DatePickerMode.day:
+        picker = new MonthPicker(
+          selectedDate: selectedDate,
+          onChanged: onChanged,
+          firstDate: firstDate,
+          lastDate: lastDate,
+          itemExtent: calendarHeight
+        );
+        break;
+      case DatePickerMode.year:
+        picker = new YearPicker(
+          selectedDate: selectedDate,
+          onChanged: _handleYearChanged,
+          firstDate: firstDate,
+          lastDate: lastDate
+        );
+        break;
+    }
+    return new BlockBody([header, new Container(height: calendarHeight, child: picker)]);
+  }
+
+}
+
+// Shows the selected date in large font and toggles between year and day mode
+class DatePickerHeader extends Component {
+  DatePickerHeader({ this.selectedDate, this.mode, this.onModeChanged }) {
+    assert(selectedDate != null);
+    assert(mode != null);
+  }
+
+  DateTime selectedDate;
+  DatePickerMode mode;
+  DatePickerModeChanged onModeChanged;
+
+  EventDisposition _handleChangeMode(DatePickerMode value) {
+    if (value == mode)
+      return EventDisposition.ignored;
+    onModeChanged(value);
     return EventDisposition.processed;
-  }
-
-  void _handleYearChanged(int year) {
-    DateTime result = new DateTime(year, dateTime.month, dateTime.day);
-    if (onChanged != null)
-      onChanged(result);
-  }
-
-  void _handleDayChanged(int month, int day) {
-    DateTime result = new DateTime(dateTime.year, month, day);
-    if (onChanged != null)
-      onChanged(result);
   }
 
   Widget build() {
@@ -59,88 +113,87 @@ class DatePicker extends StatefulComponent {
     switch(theme.primaryColorBrightness) {
       case ThemeBrightness.light:
         headerTheme = typography.black;
-        dayColor = _showYear ? colors.black54 : colors.black87;
-        yearColor = _showYear ? colors.black87 : colors.black54;
+        dayColor = mode == DatePickerMode.day ? colors.black87 : colors.black54;
+        yearColor = mode == DatePickerMode.year ? colors.black87 : colors.black54;
         break;
       case ThemeBrightness.dark:
         headerTheme = typography.white;
-        dayColor = _showYear ? colors.white54 : colors.white87;
-        yearColor = _showYear ? colors.white87 : colors.white54;
+        dayColor = mode == DatePickerMode.day ? colors.white87 : colors.white54;
+        yearColor = mode == DatePickerMode.year ? colors.white87 : colors.white54;
         break;
     }
-    TextStyle dayStyle = headerTheme.headline.copyWith(color: dayColor);
-    TextStyle monthStyle = headerTheme.display3.copyWith(color: dayColor);
-    TextStyle yearStyle = headerTheme.headline.copyWith(color: yearColor);
-    Widget contents;
-    if (_showYear) {
-      contents = new Container(
-        height: 160.0,
-        child: new YearPicker(
-          dateTime: dateTime,
-          onChanged: _handleYearChanged
-        )
-      );
-    } else {
-      contents = new DayPicker(
-        dateTime: dateTime,
-        onChanged: _handleDayChanged
-      );
-    }
+    TextStyle dayStyle = headerTheme.display3.copyWith(color: dayColor, height: 1.0, fontSize: 100.0);
+    TextStyle monthStyle = headerTheme.headline.copyWith(color: dayColor, height: 1.0);
+    TextStyle yearStyle = headerTheme.headline.copyWith(color: yearColor, height: 1.0);
+    DateTime firstDate = new DateTime(1900);
+    DateTime lastDate = new DateTime(2101);
 
-    return new Block([
-      new Container(
-        child: new BlockBody([
-          new Center(
-            child: new Listener(
-              child: new Text(new DateFormat("MMM").format(dateTime).toUpperCase(), style: dayStyle),
-              onGestureTap: _handleHideYear
-            )
-          ),
-          new Center(
-            child: new Listener(
-              child: new Text(new DateFormat("d").format(dateTime), style: monthStyle),
-              onGestureTap: _handleHideYear
-            )
-          ),
-          new Center(
-            child: new Listener(
-              child: new Text(new DateFormat("yyyy").format(dateTime), style: yearStyle),
-              onGestureTap: _handleShowYear
-            )
+    return new Container(
+      child: new BlockBody([
+        new Center(
+          child: new Listener(
+            child: new Text(new DateFormat("MMM").format(selectedDate).toUpperCase(), style: monthStyle),
+            onGestureTap: (_) => _handleChangeMode(DatePickerMode.day)
           )
-        ]),
-        padding: new EdgeDims.all(10.0),
-        decoration: new BoxDecoration(backgroundColor: theme.primaryColor)
-      ),
-      contents
-    ]);
+        ),
+        new Center(
+          child: new Listener(
+            child: new Text(new DateFormat("d").format(selectedDate), style: dayStyle),
+            onGestureTap: (_) => _handleChangeMode(DatePickerMode.day)
+          )
+        ),
+        new Center(
+          child: new Listener(
+            child: new Text(new DateFormat("yyyy").format(selectedDate), style: yearStyle),
+            onGestureTap: (_) => _handleChangeMode(DatePickerMode.year)
+          )
+        )
+      ]),
+      padding: new EdgeDims.all(10.0),
+      decoration: new BoxDecoration(backgroundColor: theme.primaryColor)
+    );
   }
 }
 
-typedef void DayPickerValueChanged(int month, int day);
-
+// Fixed height component shows a single month and allows choosing a day
 class DayPicker extends Component {
-  DayPicker({ this.dateTime, this.onChanged });
-  final DateTime dateTime;
-  final DayPickerValueChanged onChanged;
+  DayPicker({
+    this.selectedDate,
+    this.currentDate,
+    this.onChanged,
+    this.displayedMonth
+  }) {
+    assert(selectedDate != null);
+    assert(currentDate != null);
+    assert(displayedMonth != null);
+  }
+
+  final DateTime selectedDate;
+  final DateTime currentDate;
+  final DatePickerValueChanged onChanged;
+  final DateTime displayedMonth;
 
   Widget build() {
     ThemeData theme = Theme.of(this);
+    TextStyle headerStyle = theme.text.caption.copyWith(fontWeight: FontWeight.w700);
+    TextStyle monthStyle = headerStyle.copyWith(fontSize: 14.0, height: 24.0 / 14.0);
+    TextStyle dayStyle = headerStyle.copyWith(fontWeight: FontWeight.w500);
     DateFormat dateFormat = new DateFormat();
     DateSymbols symbols = dateFormat.dateSymbols;
 
     List<Text> headers = [];
     for (String weekDay in symbols.NARROWWEEKDAYS) {
-      headers.add(new Text(weekDay, style: theme.text.caption));
+      headers.add(new Text(weekDay, style: headerStyle));
     }
-    List<Flex> rows = [
+    List<Widget> rows = [
+      new Text(new DateFormat("MMMM y").format(displayedMonth), style: monthStyle),
       new Flex(
         headers,
         justifyContent: FlexJustifyContent.spaceAround
       )
     ];
-    int year = dateTime.year;
-    int month = dateTime.month;
+    int year = displayedMonth.year;
+    int month = displayedMonth.month;
     // Dart's Date time constructor is very forgiving and will understand
     // month 13 as January of the next year. :)
     int daysInMonth = new DateTime(year, month + 1).difference(new DateTime(year, month)).inDays;
@@ -164,19 +217,34 @@ class DayPicker extends Component {
       if (day < 1 || day > daysInMonth) {
         item = new Text("");
       } else {
+        // Put a light circle around the selected day
+        BoxDecoration decoration = null;
+        if (selectedDate.year == year &&
+            selectedDate.month == month &&
+            selectedDate.day == day)
+          decoration = new BoxDecoration(
+            backgroundColor: theme.primarySwatch[100],
+            shape: Shape.circle
+          );
+
+        // Use a different font color for the current day
+        TextStyle itemStyle = dayStyle;
+        if (currentDate.year == year &&
+            currentDate.month == month &&
+            currentDate.day == day)
+          itemStyle = itemStyle.copyWith(color: theme.primaryColor);
+
         item = new Listener(
           onGestureTap: (_) {
+            DateTime result = new DateTime(year, month, day);
             if (onChanged != null)
-              onChanged(month, day);
+              onChanged(result);
           },
           child: new Container(
             height: 30.0,
-            decoration: day == dateTime.day ? new BoxDecoration(
-              backgroundColor: Theme.of(this).primarySwatch[100],
-              shape: Shape.circle
-            ) : null,
+            decoration: decoration,
             child: new Center(
-              child: new Text(day.toString())
+              child: new Text(day.toString(), style: itemStyle)
             )
           )
         );
@@ -184,69 +252,128 @@ class DayPicker extends Component {
       labels.add(new Flexible(child: item));
     }
     for (int w = 0; w < weeksShown; w++) {
-        int startIndex = w * days.length;
-        rows.add(new Container(
-          child: new Flex(
-            labels.sublist(startIndex, startIndex + days.length),
-            justifyContent: FlexJustifyContent.spaceAround
-          ), padding: const EdgeDims.symmetric(vertical: 5.0)
-        ));
+      int startIndex = w * days.length;
+      rows.add(new Container(
+        child: new Flex(
+          labels.sublist(startIndex, startIndex + days.length),
+          justifyContent: FlexJustifyContent.spaceAround
+        )
+      ));
     }
 
-    return new BlockBody([
-      new Flex([
-        new Icon(type:'navigation/chevron_left', size: 24),
-        new Text(new DateFormat("MMMM y").format(dateTime)),
-        new Icon(type:'navigation/chevron_right', size: 24),
-      ], justifyContent: FlexJustifyContent.spaceBetween),
-      new BlockBody(rows)
-    ]);
+    return new Column(rows);
   }
 }
 
-typedef void YearPickerValueChanged(int year);
-
-class YearPicker extends ScrollableWidgetList {
-  YearPicker({
-    this.dateTime,
+// Scrollable list of DayPickers to allow choosing a month
+class MonthPicker extends ScrollableWidgetList {
+  MonthPicker({
+    this.selectedDate,
     this.onChanged,
-    this.firstYear: 2014,
-    this.lastYear: 2101
-  })
-   : super(itemExtent: 50.0) {
-    assert(lastYear >= firstYear);
+    this.firstDate,
+    this.lastDate,
+    double itemExtent
+  }) : super(itemExtent: itemExtent) {
+    assert(selectedDate != null);
+    assert(lastDate.isAfter(firstDate));
   }
-  DateTime dateTime;
-  YearPickerValueChanged onChanged;
-  int firstYear;
-  int lastYear;
+  DateTime selectedDate;
+  DatePickerValueChanged onChanged;
+  DateTime firstDate;
+  DateTime lastDate;
 
-  void syncConstructorArguments(YearPicker source) {
-    dateTime = source.dateTime;
+  void syncConstructorArguments(MonthPicker source) {
+    selectedDate = source.selectedDate;
     onChanged = source.onChanged;
-    firstYear = source.firstYear;
-    lastYear = source.lastYear;
+    firstDate = source.firstDate;
+    lastDate = source.lastDate;
     super.syncConstructorArguments(source);
   }
 
-  int get itemCount => lastYear - firstYear + 1;
+  @override
+  void initState() {
+    _updateCurrentDate();
+    super.initState();
+  }
+
+  DateTime _currentDate;
+  void _updateCurrentDate() {
+    _currentDate = new DateTime.now();
+    DateTime tomorrow = new DateTime(_currentDate.year, _currentDate.month, _currentDate.day + 1);
+    Duration timeUntilTomorrow = tomorrow.difference(_currentDate);
+    new Timer(timeUntilTomorrow, () {
+      setState(() {
+        _updateCurrentDate();
+      });
+    });
+  }
+
+  int get itemCount => (lastDate.year - firstDate.year) * 12 + lastDate.month - firstDate.month + 1;
+
+  List<Widget> buildItems(int start, int count) {
+    List<Widget> result = new List<Widget>();
+    DateTime startDate = new DateTime(firstDate.year + start ~/ 12, firstDate.month + start % 12);
+    for (int i = 0; i < count; ++i) {
+      DateTime displayedMonth = new DateTime(startDate.year + i ~/ 12, startDate.month + i % 12);
+      Widget item = new Container(
+        height: itemExtent,
+        key: new ObjectKey(displayedMonth),
+        child: new DayPicker(
+          selectedDate: selectedDate,
+          currentDate: _currentDate,
+          onChanged: onChanged,
+          displayedMonth: displayedMonth
+        )
+      );
+      result.add(item);
+    }
+    return result;
+  }
+}
+
+// Scrollable list of years to allow picking a year
+class YearPicker extends ScrollableWidgetList {
+  YearPicker({
+    this.selectedDate,
+    this.onChanged,
+    this.firstDate,
+    this.lastDate
+  }) : super(itemExtent: 50.0) {
+    assert(selectedDate != null);
+    assert(lastDate.isAfter(firstDate));
+  }
+  DateTime selectedDate;
+  DatePickerValueChanged onChanged;
+  DateTime firstDate;
+  DateTime lastDate;
+
+  void syncConstructorArguments(YearPicker source) {
+    selectedDate = source.selectedDate;
+    onChanged = source.onChanged;
+    firstDate = source.firstDate;
+    lastDate = source.lastDate;
+    super.syncConstructorArguments(source);
+  }
+
+  int get itemCount => lastDate.year - firstDate.year + 1;
 
   List<Widget> buildItems(int start, int count) {
     TextStyle style = Theme.of(this).text.body1.copyWith(color: colors.black54);
     List<Widget> items = new List<Widget>();
     for(int i = start; i < start + count; i++) {
-      int year = firstYear + i;
+      int year = firstDate.year + i;
       String label = year.toString();
       Widget item = new Listener(
         key: new Key(label),
         onGestureTap: (_) {
+          DateTime result = new DateTime(year, selectedDate.month, selectedDate.day);
           if (onChanged != null)
-            onChanged(year);
+            onChanged(result);
         },
         child: new InkWell(
           child: new Container(
             height: itemExtent,
-            decoration: year == dateTime.year ? new BoxDecoration(
+            decoration: year == selectedDate.year ? new BoxDecoration(
               backgroundColor: Theme.of(this).primarySwatch[100],
               shape: Shape.circle
             ) : null,
@@ -291,7 +418,12 @@ class DatePickerDemo extends App {
           )
         ),
         new Dialog(
-          content: new DatePicker(dateTime: _dateTime, onChanged: _handleDateChanged),
+          content: new DatePicker(
+            selectedDate: _dateTime,
+            firstDate: new DateTime(2015, 8),
+            lastDate: new DateTime(2101),
+            onChanged: _handleDateChanged
+          ),
           contentPadding: EdgeDims.zero,
           actions: [
             new FlatButton(
